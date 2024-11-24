@@ -2,8 +2,13 @@ package vn.edu.hust.studentman
 
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.MenuItem
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
+import android.widget.ListView
+import android.widget.PopupMenu
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -12,11 +17,16 @@ import com.google.android.material.snackbar.Snackbar
 
 class MainActivity : AppCompatActivity() {
   private lateinit var students: MutableList<StudentModel>
-  private lateinit var studentAdapter: StudentAdapter
+  private lateinit var listView: ListView
+  private lateinit var adapter: StudentAdapter
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
+
+    val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+    setSupportActionBar(toolbar)
+    supportActionBar?.setDisplayShowTitleEnabled(false)
 
     students = mutableListOf(
       StudentModel("Nguyễn Văn An", "SV001"),
@@ -41,19 +51,56 @@ class MainActivity : AppCompatActivity() {
       StudentModel("Lê Văn Vũ", "SV020")
     )
 
-    studentAdapter = StudentAdapter(
-      students,
-      onEdit = { student -> showEditDialog(student) },
-      onDelete = { student -> showDeleteDialog(student) }
-    )
+    adapter = StudentAdapter(this, students)
+    listView = findViewById(R.id.list_view_students)
+    listView.adapter = adapter
 
-    findViewById<RecyclerView>(R.id.recycler_view_students).run {
-      adapter = studentAdapter
-      layoutManager = LinearLayoutManager(this@MainActivity)
+    findViewById<ImageView>(R.id.btn_add).setOnClickListener {
+      showAddDialog()
     }
 
-    findViewById<Button>(R.id.btn_add_new).setOnClickListener {
-      showAddDialog()
+    listView.setOnItemLongClickListener { parent, view, position, id ->
+      val popup = PopupMenu(this, view)
+      popup.menuInflater.inflate(R.menu.context_menu, popup.menu)
+
+      popup.setOnMenuItemClickListener { item ->
+        when (item.itemId) {
+          R.id.action_edit -> {
+            showEditDialog(students[position])
+            true
+          }
+          R.id.action_delete -> {
+            showDeleteDialog(students[position])
+            true
+          }
+          else -> false
+        }
+      }
+      popup.show()
+      true
+    }
+
+    registerForContextMenu(listView)
+
+    listView.setOnItemLongClickListener { parent, view, position, id ->
+      val popup = PopupMenu(this, view)
+      popup.menuInflater.inflate(R.menu.context_menu, popup.menu)
+
+      popup.setOnMenuItemClickListener { item ->
+        when (item.itemId) {
+          R.id.action_edit -> {
+            showEditDialog(students[position])
+            true
+          }
+          R.id.action_delete -> {
+            showDeleteDialog(students[position])
+            true
+          }
+          else -> false
+        }
+      }
+      popup.show()
+      true
     }
   }
 
@@ -72,7 +119,7 @@ class MainActivity : AppCompatActivity() {
         val id = idInput.text.toString()
         if (name.isNotEmpty() && id.isNotEmpty()) {
           students.add(StudentModel(name, id))
-          studentAdapter.notifyItemInserted(students.size - 1)
+          adapter.notifyDataSetChanged()
         }
         dialog.dismiss()
       }
@@ -102,7 +149,7 @@ class MainActivity : AppCompatActivity() {
           val position = students.indexOf(student)
           if (position != -1) {
             students[position] = StudentModel(name, id)
-            studentAdapter.notifyItemChanged(position)
+            adapter.notifyDataSetChanged()
           }
         }
         dialog.dismiss()
@@ -121,7 +168,8 @@ class MainActivity : AppCompatActivity() {
         val position = students.indexOf(student)
         if (position != -1) {
           students.removeAt(position)
-          studentAdapter.notifyItemRemoved(position)
+          adapter.notifyDataSetChanged()
+//          Toast.makeText(this, "Student has been deleted", Toast.LENGTH_SHORT).show()
           showUndoSnackbar(student, position)
         }
         dialog.dismiss()
@@ -139,7 +187,7 @@ class MainActivity : AppCompatActivity() {
       Snackbar.LENGTH_LONG
     ).setAction("UNDO") {
       students.add(position, deletedStudent)
-      studentAdapter.notifyItemInserted(position)
+      adapter.notifyDataSetChanged()
     }.show()
   }
 }
