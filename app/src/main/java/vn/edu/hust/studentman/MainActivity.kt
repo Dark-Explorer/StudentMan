@@ -19,6 +19,7 @@ class MainActivity : AppCompatActivity() {
   private lateinit var students: MutableList<StudentModel>
   private lateinit var listView: ListView
   private lateinit var adapter: StudentAdapter
+  private lateinit var dbHelper: DatabaseHelper
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -28,28 +29,8 @@ class MainActivity : AppCompatActivity() {
     setSupportActionBar(toolbar)
     supportActionBar?.setDisplayShowTitleEnabled(false)
 
-    students = mutableListOf(
-      StudentModel("Nguyễn Văn An", "SV001"),
-      StudentModel("Trần Thị Bảo", "SV002"),
-      StudentModel("Lê Hoàng Cường", "SV003"),
-      StudentModel("Phạm Thị Dung", "SV004"),
-      StudentModel("Đỗ Minh Đức", "SV005"),
-      StudentModel("Vũ Thị Hoa", "SV006"),
-      StudentModel("Hoàng Văn Hải", "SV007"),
-      StudentModel("Bùi Thị Hạnh", "SV008"),
-      StudentModel("Đinh Văn Hùng", "SV009"),
-      StudentModel("Nguyễn Thị Linh", "SV010"),
-      StudentModel("Phạm Văn Long", "SV011"),
-      StudentModel("Trần Thị Mai", "SV012"),
-      StudentModel("Lê Thị Ngọc", "SV013"),
-      StudentModel("Vũ Văn Nam", "SV014"),
-      StudentModel("Hoàng Thị Phương", "SV015"),
-      StudentModel("Đỗ Văn Quân", "SV016"),
-      StudentModel("Nguyễn Thị Thu", "SV017"),
-      StudentModel("Trần Văn Tài", "SV018"),
-      StudentModel("Phạm Thị Tuyết", "SV019"),
-      StudentModel("Lê Văn Vũ", "SV020")
-    )
+    dbHelper = DatabaseHelper(this)
+    students = dbHelper.getStudents().toMutableList()
 
     adapter = StudentAdapter(this, students)
     listView = findViewById(R.id.list_view_students)
@@ -58,29 +39,6 @@ class MainActivity : AppCompatActivity() {
     findViewById<ImageView>(R.id.btn_add).setOnClickListener {
       showAddDialog()
     }
-
-    listView.setOnItemLongClickListener { parent, view, position, id ->
-      val popup = PopupMenu(this, view)
-      popup.menuInflater.inflate(R.menu.context_menu, popup.menu)
-
-      popup.setOnMenuItemClickListener { item ->
-        when (item.itemId) {
-          R.id.action_edit -> {
-            showEditDialog(students[position])
-            true
-          }
-          R.id.action_delete -> {
-            showDeleteDialog(students[position])
-            true
-          }
-          else -> false
-        }
-      }
-      popup.show()
-      true
-    }
-
-    registerForContextMenu(listView)
 
     listView.setOnItemLongClickListener { parent, view, position, id ->
       val popup = PopupMenu(this, view)
@@ -118,7 +76,9 @@ class MainActivity : AppCompatActivity() {
         val name = nameInput.text.toString()
         val id = idInput.text.toString()
         if (name.isNotEmpty() && id.isNotEmpty()) {
-          students.add(StudentModel(name, id))
+          val student = StudentModel(name, id)
+          dbHelper.addStudent(student)
+          students.add(student)
           adapter.notifyDataSetChanged()
         }
         dialog.dismiss()
@@ -138,17 +98,19 @@ class MainActivity : AppCompatActivity() {
 
     nameInput.setText(student.studentName)
     idInput.setText(student.studentId)
+    idInput.isEnabled = false
 
     AlertDialog.Builder(this)
       .setTitle("Edit Student")
       .setView(dialogView)
       .setPositiveButton("Save") { dialog, _ ->
         val name = nameInput.text.toString()
-        val id = idInput.text.toString()
-        if (name.isNotEmpty() && id.isNotEmpty()) {
+        if (name.isNotEmpty()) {
+          val updatedStudent = StudentModel(name, student.studentId)
+          dbHelper.updateStudent(updatedStudent)
           val position = students.indexOf(student)
           if (position != -1) {
-            students[position] = StudentModel(name, id)
+            students[position] = updatedStudent
             adapter.notifyDataSetChanged()
           }
         }
@@ -167,9 +129,9 @@ class MainActivity : AppCompatActivity() {
       .setPositiveButton("OK") { dialog, _ ->
         val position = students.indexOf(student)
         if (position != -1) {
+          dbHelper.deleteStudent(student.studentId)
           students.removeAt(position)
           adapter.notifyDataSetChanged()
-//          Toast.makeText(this, "Student has been deleted", Toast.LENGTH_SHORT).show()
           showUndoSnackbar(student, position)
         }
         dialog.dismiss()
@@ -186,6 +148,7 @@ class MainActivity : AppCompatActivity() {
       "Student has been deleted",
       Snackbar.LENGTH_LONG
     ).setAction("UNDO") {
+      dbHelper.addStudent(deletedStudent)
       students.add(position, deletedStudent)
       adapter.notifyDataSetChanged()
     }.show()
